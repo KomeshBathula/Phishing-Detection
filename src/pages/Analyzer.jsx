@@ -10,7 +10,8 @@ import ProgressCircle from '../components/ProgressCircle';
 import RiskBadge from '../components/RiskBadge';
 import LoadingScanner from '../components/LoadingScanner';
 import ExplainabilityPanel from '../components/ExplainabilityPanel';
-import { performAnalysis, getRiskColor } from '../utils/analyzer';
+import { getRiskColor } from '../utils/analyzer';
+import { apiService } from '../services/api';
 
 const tabs = [
   { id: 'url', label: 'URL', icon: Link2, placeholder: 'https://example.com/suspicious-link' },
@@ -54,13 +55,17 @@ export default function Analyzer({ onAnalysisComplete }) {
     setResult(null);
 
     try {
-      const analysisResult = await performAnalysis(input, activeTab);
+      let analysisResult;
+      if (activeTab === 'url') analysisResult = await apiService.analyzeURL(input);
+      else if (activeTab === 'email') analysisResult = await apiService.analyzeEmail(input);
+      else analysisResult = await apiService.analyzeText(input);
+
       setResult(analysisResult);
       if (onAnalysisComplete) {
         onAnalysisComplete(analysisResult);
       }
-    } catch {
-      setError('Analysis failed. Please try again.');
+    } catch (err) {
+      setError(err.message || 'Analysis failed. Please try again.');
     } finally {
       setLoading(false);
     }

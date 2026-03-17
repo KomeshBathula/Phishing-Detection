@@ -8,9 +8,10 @@ import RiskBadge from '../components/RiskBadge';
 import ProgressCircle from '../components/ProgressCircle';
 import Modal from '../components/Modal';
 import ExplainabilityPanel from '../components/ExplainabilityPanel';
-import { mockHistory } from '../data/mockData';
-import { mockAnalysisResults } from '../data/mockData';
 import { formatTimestamp } from '../utils/analyzer';
+import { apiService } from '../services/api';
+import LoadingScanner from '../components/LoadingScanner';
+import { useEffect } from 'react';
 
 const typeIcons = {
   url: Link2,
@@ -34,10 +35,25 @@ function getDetailedResult(item) {
 }
 
 export default function History() {
-  const [history] = useState(mockHistory);
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState(null);
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        const data = await apiService.getHistory();
+        setHistory(data);
+      } catch (error) {
+        console.error('Failed to fetch history:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchHistory();
+  }, []);
 
   const filteredHistory = history.filter((item) => {
     if (filter !== 'all' && item.type !== filter) return false;
@@ -104,7 +120,11 @@ export default function History() {
 
       {/* History list */}
       <div className="space-y-2">
-        {filteredHistory.length === 0 ? (
+        {loading ? (
+          <Card className="flex items-center justify-center py-20">
+             <LoadingScanner type="url" />
+          </Card>
+        ) : filteredHistory.length === 0 ? (
           <Card className="text-center py-12">
             <Search className="w-8 h-8 text-cyber-muted mx-auto mb-3" />
             <p className="text-cyber-muted">No results found</p>

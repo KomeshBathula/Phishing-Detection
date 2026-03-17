@@ -23,7 +23,7 @@ function getRandomResult(type) {
   return results[randomKey];
 }
 
-function analyzeInput(input, type) {
+export function analyzeInput(input, type) {
   const lowerInput = input.toLowerCase();
 
   if (type === 'url') {
