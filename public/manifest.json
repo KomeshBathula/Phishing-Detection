@@ -2,11 +2,15 @@
   "manifest_version": 3,
   "name": "PhishGuard AI",
   "version": "1.0.0",
-  "description": "Advanced Phishing Detection & Human Intelligence Training.",
+  "description": "AI-powered phishing detection and real-time security intelligence.",
   "action": {
-    "default_popup": "src/popup/popup.html"
+    "default_popup": "index.html",
+    "default_icon": {
+      "16": "favicon.svg",
+      "48": "favicon.svg",
+      "128": "favicon.svg"
+    }
   },
-  "options_page": "src/options/options.html",
   "background": {
     "service_worker": "background.js",
     "type": "module"
@@ -18,13 +22,12 @@
     }
   ],
   "permissions": [
-    "storage",
     "activeTab",
-    "scripting",
+    "storage",
     "tabs",
     "notifications"
   ],
   "host_permissions": [
-    "<all_urls>"
+    "http://localhost:5000/*"
   ]
 }

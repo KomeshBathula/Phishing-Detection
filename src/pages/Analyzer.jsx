@@ -48,6 +48,21 @@ export default function Analyzer({ onAnalysisComplete }) {
     return true;
   }, [input, activeTab]);
 
+  useEffect(() => {
+    // Auto-populate URL if running as an extension
+    if (typeof chrome !== 'undefined' && chrome.tabs) {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs[0] && tabs[0].url) {
+          const url = tabs[0].url;
+          if (url.startsWith('http')) {
+            setInput(url);
+            setActiveTab('url');
+          }
+        }
+      });
+    }
+  }, []);
+
   const handleAnalyze = useCallback(async () => {
     if (!validate()) return;
 

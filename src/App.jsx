@@ -19,7 +19,7 @@ function ScrollToTop() {
 
 export default function App() {
   return (
-    <div className="min-h-screen bg-cyber-dark text-cyber-text selection:bg-cyber-accent/30 selection:text-white">
+    <div className="min-h-screen bg-cyber-dark text-cyber-text selection:bg-cyber-accent/30 selection:text-white max-w-[450px] mx-auto overflow-x-hidden">
       {/* Background patterns */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <div className="absolute inset-0 grid-bg opacity-30" />
