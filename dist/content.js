@@ -1,0 +1,1 @@
+console.log(`PhishGuard AI: Content Script Active`);function e(){let e={url:window.location.href,title:document.title,content:document.body.innerText.substring(0,1e3)};chrome.runtime.sendMessage({action:`analyzePage`,data:e})}e(),chrome.runtime.onMessage.addListener(e=>{e.action===`showWarning`&&t(e.details)});function t(e){console.warn(`PhishGuard ALERT:`,e.reasons[0])}
