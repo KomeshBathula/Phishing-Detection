@@ -1,113 +1,119 @@
-import { performAnalysis } from '../utils/analyzer';
-import { mockHistory, mockStats, simulationScenarios } from '../data/mockData';
+import { mockAnalysisResults, mockHistory } from '../data/mockData';
+import { analyzeInput } from '../utils/analyzer';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = 'https://api.phishguard.ai/v1';
 
 /**
- * Helper to handle API calls with automatic mock fallback
+ * Common handler for API responses
  */
-async function fetchWithFallback(endpoint, options, fallbackFn, mockData) {
-  try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`API Error: ${response.status}`);
+const handleResponse = async (response) => {
+  if (!response.ok) {
+    let errorMessage = 'API request failed';
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.message || errorMessage;
+    } catch (e) {
+      // If response is not JSON
     }
-
-    return await response.json();
-  } catch (error) {
-    console.warn(`API call to ${endpoint} failed, falling back to mock data.`, error);
-    if (fallbackFn) {
-      return await fallbackFn();
-    }
-    return mockData;
+    throw new Error(errorMessage);
   }
-}
-
-export const api = {
-  /**
-   * Analyze a URL for phishing threats
-   */
-  async analyzeURL(url) {
-    return fetchWithFallback(
-      '/analyze/url',
-      {
-        method: 'POST',
-        body: JSON.stringify({ url }),
-      },
-      () => performAnalysis(url, 'url')
-    );
-  },
-
-  /**
-   * Analyze email content for phishing threats
-   */
-  async analyzeEmail(content) {
-    return fetchWithFallback(
-      '/analyze/email',
-      {
-        method: 'POST',
-        body: JSON.stringify({ content }),
-      },
-      () => performAnalysis(content, 'email')
-    );
-  },
-
-  /**
-   * Analyze text message content for phishing threats
-   */
-  async analyzeText(content) {
-    return fetchWithFallback(
-      '/analyze/text',
-      {
-        method: 'POST',
-        body: JSON.stringify({ content }),
-      },
-      () => performAnalysis(content, 'text')
-    );
-  },
-
-  /**
-   * Fetch scan history
-   */
-  async getHistory() {
-    return fetchWithFallback(
-      '/history',
-      { method: 'GET' },
-      null,
-      mockHistory
-    );
-  },
-
-  /**
-   * Fetch aggregate security stats
-   */
-  async getStats() {
-    return fetchWithFallback(
-      '/stats',
-      { method: 'GET' },
-      null,
-      mockStats
-    );
-  },
-
-  /**
-   * Fetch simulation scenarios
-   */
-  async getSimulationScenarios() {
-    return fetchWithFallback(
-      '/simulations',
-      { method: 'GET' },
-      null,
-      simulationScenarios
-    );
-  },
+  return response.json();
 };
 
-export default api;
+/**
+ * Simulates a delay to mimic network latency for local development/fallback
+ */
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+export const apiService = {
+  /**
+   * Analyzes a URL for phishing threats
+   */
+  analyzeURL: async (url) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/analyze/url`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url }),
+      });
+      return await handleResponse(response);
+    } catch (error) {
+      console.warn('API: analyzeURL failed, using local fallback Engine.', error.message);
+      await delay(1200); // Simulate API latency
+      // Use existing heuristic engine for high-quality fallback
+      return analyzeInput(url, 'url');
+    }
+  },
+
+  /**
+   * Analyzes email content for phishing threats
+   */
+  analyzeEmail: async (content) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/analyze/email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ content }),
+      });
+      return await handleResponse(response);
+    } catch (error) {
+      console.warn('API: analyzeEmail failed, using local fallback Engine.', error.message);
+      await delay(1500);
+      return analyzeInput(content, 'email');
+    }
+  },
+
+  /**
+   * Analyzes text messages for smishing threats
+   */
+  analyzeText: async (content) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/analyze/text`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ content }),
+      });
+      return await handleResponse(response);
+    } catch (error) {
+      console.warn('API: analyzeText failed, using local fallback Engine.', error.message);
+      await delay(1000);
+      return analyzeInput(content, 'text');
+    }
+  },
+
+  /**
+   * Retrieves scan history
+   */
+  getHistory: async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/history`);
+      return await handleResponse(response);
+    } catch (error) {
+      console.warn('API: getHistory failed, falling back to mock data.', error.message);
+      await delay(500);
+      return mockHistory;
+    }
+  },
+
+  /**
+   * Retrieves dashboard statistics
+   */
+  getStats: async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/stats`);
+      return await handleResponse(response);
+    } catch (error) {
+      console.warn('API: getStats failed, falling back to mock data.', error.message);
+      // We don't have mockStats exported in api.js context yet, 
+      // but we can import it or define it.
+      const { mockStats } = await import('../data/mockData');
+      return mockStats;
+    }
+  }
+};

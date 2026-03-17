@@ -2,14 +2,18 @@ import { useNavigate } from 'react-router-dom';
 import {
   Shield, Scan, AlertTriangle, CheckCircle, Target,
   ArrowRight, Link2, Mail, MessageSquare, TrendingUp,
-  Zap, Eye, Brain, ChevronRight,
+  Zap, Eye, Brain, ChevronRight, RefreshCw,
 } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import Card from '../components/Card';
 import RiskBadge from '../components/RiskBadge';
 import Button from '../components/Button';
+import RiskBadge from '../components/RiskBadge';
+import Button from '../components/Button';
 import { formatTimestamp } from '../utils/analyzer';
-import api from '../services/api';
-import { useEffect, useState } from 'react';
+import { apiService } from '../services/api';
+import LoadingScanner from '../components/LoadingScanner';
+import { mockStats } from '../data/mockData';
 
 function StatCard({ icon: Icon, label, value, color, delay }) {
   return (
@@ -49,22 +53,21 @@ const typeIcons = {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [stats, setStats] = useState(null);
+  const [stats, setStats] = useState(mockStats);
   const [recentItems, setRecentItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        setLoading(true);
         const [statsData, historyData] = await Promise.all([
-          api.getStats(),
-          api.getHistory()
+          apiService.getStats(),
+          apiService.getHistory()
         ]);
         setStats(statsData);
-        setRecentItems((historyData || []).slice(0, 5));
-      } catch (err) {
-        console.error('Dashboard data fetch failed:', err);
+        setRecentItems(historyData.slice(0, 5));
+      } catch (error) {
+        console.error('Dashboard data fetch failed:', error);
       } finally {
         setLoading(false);
       }
@@ -138,34 +141,10 @@ export default function Dashboard() {
       {/* Stats */}
       <section>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard 
-            icon={Scan} 
-            label="Total Scans" 
-            value={loading ? '...' : (stats?.totalScans || 0).toLocaleString()} 
-            color="#3b82f6" 
-            delay={1} 
-          />
-          <StatCard 
-            icon={AlertTriangle} 
-            label="Threats Detected" 
-            value={loading ? '...' : (stats?.threatsDetected || 0).toLocaleString()} 
-            color="#ef4444" 
-            delay={2} 
-          />
-          <StatCard 
-            icon={CheckCircle} 
-            label="Safe Content" 
-            value={loading ? '...' : (stats?.safeContent || 0).toLocaleString()} 
-            color="#22c55e" 
-            delay={3} 
-          />
-          <StatCard 
-            icon={Target} 
-            label="Detection Accuracy" 
-            value={loading ? '...' : `${stats?.accuracy || 0}%`} 
-            color="#00ff88" 
-            delay={4} 
-          />
+          <StatCard icon={Scan} label="Total Scans" value={stats.totalScans.toLocaleString()} color="#3b82f6" delay={1} />
+          <StatCard icon={AlertTriangle} label="Threats Detected" value={stats.threatsDetected.toLocaleString()} color="#ef4444" delay={2} />
+          <StatCard icon={CheckCircle} label="Safe Content" value={stats.safeContent.toLocaleString()} color="#22c55e" delay={3} />
+          <StatCard icon={Target} label="Detection Accuracy" value={`${stats.accuracy}%`} color="#00ff88" delay={4} />
         </div>
       </section>
 
@@ -222,30 +201,39 @@ export default function Dashboard() {
 
           <Card>
             <div className="space-y-1">
-              {recentItems.map((item, i) => {
-                const TypeIcon = typeIcons[item.type] || Link2;
-                return (
-                  <div
-                    key={item.id}
-                    className={`flex items-center gap-4 p-3 rounded-lg hover:bg-cyber-darker/50 transition-colors cursor-pointer animate-fade-in-up stagger-${i + 1}`}
-                    onClick={() => navigate('/history')}
-                  >
-                    <div className="p-2 rounded-lg bg-cyber-darker">
-                      <TypeIcon className="w-4 h-4 text-cyber-muted" />
+              {loading ? (
+                <div className="py-12 flex flex-col items-center justify-center gap-4 text-cyber-muted">
+                  <RefreshCw className="w-6 h-6 animate-spin-slow opacity-20" />
+                  <p className="text-xs font-mono tracking-widest uppercase">Fetching Intel...</p>
+                </div>
+              ) : recentItems.length === 0 ? (
+                <div className="py-8 text-center text-cyber-muted text-sm">No recent activity</div>
+              ) : (
+                recentItems.map((item, i) => {
+                  const TypeIcon = typeIcons[item.type] || Link2;
+                  return (
+                    <div
+                      key={item.id}
+                      className={`flex items-center gap-4 p-3 rounded-lg hover:bg-cyber-darker/50 transition-colors cursor-pointer animate-fade-in-up stagger-${i + 1}`}
+                      onClick={() => navigate('/history')}
+                    >
+                      <div className="p-2 rounded-lg bg-cyber-darker">
+                        <TypeIcon className="w-4 h-4 text-cyber-muted" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-cyber-text truncate font-mono">
+                          {item.input}
+                        </p>
+                        <p className="text-xs text-cyber-muted mt-0.5">
+                          {formatTimestamp(item.timestamp)}
+                        </p>
+                      </div>
+                      <RiskBadge classification={item.classification} size="sm" />
+                      <ChevronRight className="w-4 h-4 text-cyber-border" />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-cyber-text truncate font-mono">
-                        {item.input}
-                      </p>
-                      <p className="text-xs text-cyber-muted mt-0.5">
-                        {formatTimestamp(item.timestamp)}
-                      </p>
-                    </div>
-                    <RiskBadge classification={item.classification} size="sm" />
-                    <ChevronRight className="w-4 h-4 text-cyber-border" />
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </Card>
         </div>

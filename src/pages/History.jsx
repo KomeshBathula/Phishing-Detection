@@ -9,8 +9,8 @@ import ProgressCircle from '../components/ProgressCircle';
 import Modal from '../components/Modal';
 import ExplainabilityPanel from '../components/ExplainabilityPanel';
 import { formatTimestamp } from '../utils/analyzer';
-import { mockAnalysisResults } from '../data/mockData';
-import api from '../services/api';
+import { apiService } from '../services/api';
+import LoadingScanner from '../components/LoadingScanner';
 import { useEffect } from 'react';
 
 const typeIcons = {
@@ -37,7 +37,6 @@ function getDetailedResult(item) {
 export default function History() {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -45,12 +44,10 @@ export default function History() {
   useEffect(() => {
     const fetchHistory = async () => {
       try {
-        setLoading(true);
-        const data = await api.getHistory();
+        const data = await apiService.getHistory();
         setHistory(data);
-      } catch (err) {
-        console.error('Failed to fetch history:', err);
-        setError('Failed to load scan history.');
+      } catch (error) {
+        console.error('Failed to fetch history:', error);
       } finally {
         setLoading(false);
       }
@@ -121,25 +118,13 @@ export default function History() {
         </div>
       </Card>
 
-      {/* Loading & Error States */}
-      {loading && (
-        <Card className="text-center py-12">
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-8 h-8 border-2 border-cyber-accent border-t-transparent rounded-full animate-spin-slow" />
-            <p className="text-cyber-muted text-sm font-mono">RETRIEVING_DATA_LOGS...</p>
-          </div>
-        </Card>
-      )}
-
-      {error && !loading && (
-        <Card className="text-center py-12 border-cyber-danger/20">
-          <p className="text-cyber-danger text-sm font-medium">{error}</p>
-        </Card>
-      )}
-
       {/* History list */}
       <div className="space-y-2">
-        {filteredHistory.length === 0 ? (
+        {loading ? (
+          <Card className="flex items-center justify-center py-20">
+             <LoadingScanner type="url" />
+          </Card>
+        ) : filteredHistory.length === 0 ? (
           <Card className="text-center py-12">
             <Search className="w-8 h-8 text-cyber-muted mx-auto mb-3" />
             <p className="text-cyber-muted">No results found</p>
