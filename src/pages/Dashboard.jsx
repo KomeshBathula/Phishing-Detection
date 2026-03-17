@@ -8,8 +8,6 @@ import { useState, useEffect } from 'react';
 import Card from '../components/Card';
 import RiskBadge from '../components/RiskBadge';
 import Button from '../components/Button';
-import RiskBadge from '../components/RiskBadge';
-import Button from '../components/Button';
 import { formatTimestamp } from '../utils/analyzer';
 import { apiService } from '../services/api';
 import LoadingScanner from '../components/LoadingScanner';

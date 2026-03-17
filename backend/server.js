@@ -8,6 +8,11 @@ import historyRoutes from './routes/history.routes.js';
 // Load environment variables
 dotenv.config();
 
+import connectDB from './config/db.js';
+
+// Connect to Database
+connectDB();
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 

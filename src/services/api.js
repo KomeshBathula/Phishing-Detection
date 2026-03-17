@@ -1,17 +1,17 @@
 import { mockAnalysisResults, mockHistory } from '../data/mockData';
 import { analyzeInput } from '../utils/analyzer';
 
-const API_BASE_URL = 'https://api.phishguard.ai/v1';
+const API_BASE_URL = 'http://localhost:5000';
 
 /**
  * Common handler for API responses
  */
 const handleResponse = async (response) => {
   if (!response.ok) {
-    let errorMessage = 'API request failed';
+    let errorMessage = `API request failed: ${response.status} ${response.statusText}`;
     try {
       const errorData = await response.json();
-      errorMessage = errorData.message || errorMessage;
+      errorMessage = errorData.error?.message || errorData.message || errorMessage;
     } catch (e) {
       // If response is not JSON
     }
@@ -41,8 +41,7 @@ export const apiService = {
       return await handleResponse(response);
     } catch (error) {
       console.warn('API: analyzeURL failed, using local fallback Engine.', error.message);
-      await delay(1200); // Simulate API latency
-      // Use existing heuristic engine for high-quality fallback
+      await delay(800); 
       return analyzeInput(url, 'url');
     }
   },
@@ -62,7 +61,7 @@ export const apiService = {
       return await handleResponse(response);
     } catch (error) {
       console.warn('API: analyzeEmail failed, using local fallback Engine.', error.message);
-      await delay(1500);
+      await delay(1000);
       return analyzeInput(content, 'email');
     }
   },
@@ -70,20 +69,20 @@ export const apiService = {
   /**
    * Analyzes text messages for smishing threats
    */
-  analyzeText: async (content) => {
+  analyzeText: async (text) => {
     try {
       const response = await fetch(`${API_BASE_URL}/analyze/text`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ text }),
       });
       return await handleResponse(response);
     } catch (error) {
       console.warn('API: analyzeText failed, using local fallback Engine.', error.message);
-      await delay(1000);
-      return analyzeInput(content, 'text');
+      await delay(800);
+      return analyzeInput(text, 'text');
     }
   },
 
@@ -93,7 +92,8 @@ export const apiService = {
   getHistory: async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/history`);
-      return await handleResponse(response);
+      const result = await handleResponse(response);
+      return result.data || result; // Handle both paginated and flat responses
     } catch (error) {
       console.warn('API: getHistory failed, falling back to mock data.', error.message);
       await delay(500);
@@ -106,12 +106,13 @@ export const apiService = {
    */
   getStats: async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/stats`);
-      return await handleResponse(response);
+      const response = await fetch(`${API_BASE_URL}/health`); // Use health check or real stats if implemented
+      const health = await handleResponse(response);
+      
+      const { mockStats } = await import('../data/mockData');
+      return mockStats; // Keep mock stats for now unless a /stats endpoint is fully built
     } catch (error) {
       console.warn('API: getStats failed, falling back to mock data.', error.message);
-      // We don't have mockStats exported in api.js context yet, 
-      // but we can import it or define it.
       const { mockStats } = await import('../data/mockData');
       return mockStats;
     }
