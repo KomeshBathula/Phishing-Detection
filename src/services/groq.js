@@ -59,9 +59,12 @@ export const groq = {
     }
 
     const ANALYSIS_PROMPT = `
-      You are a PhishGuard AI Threat Analyst.
-      Analyze the following ${type} for phishing or security threats:
-      "${content}"
+      Analyze the following URL for phishing or security risks. 
+      Consider:
+      1. Deceptive domain names (look-alikes).
+      2. Suspicious TLDs.
+      3. Obfuscation techniques.
+      4. Redirect Chain Context: If this URL was reached via multiple redirects, it is a high-risk indicator of obfuscation.
 
       STRICT EVALUATION RULES:
       1. If the input is a well-known legitimate URL (e.g., github.com, google.com, microsoft.com), do NOT flag it as high risk unless there is a very obvious, specific sub-path that looks like an attack.

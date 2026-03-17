@@ -10,44 +10,65 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 // Intercept navigations for real-time protection
-chrome.webNavigation.onBeforeNavigate.addListener((details) => {
+chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
   // Only intercept top-level frames
   if (details.frameId !== 0) return;
 
   const url = details.url;
   if (!url || url.startsWith('chrome://') || url.startsWith('chrome-extension://')) return;
 
-  chrome.storage.local.get(['isExtensionEnabled'], (result) => {
+  chrome.storage.local.get(['isExtensionEnabled'], async (result) => {
     if (result.isExtensionEnabled === false) return;
 
-    // Simple heuristic to avoid blocking everything
-    // We want to block if:
-    // 1. It's NOT a whitelisted domain
-    // 2. It contains suspicious keywords
-    const lowerUrl = url.toLowerCase();
+    // Deep Redirect Analysis
+    const finalUrl = await followRedirects(url);
+    const lowerUrl = finalUrl.toLowerCase();
+    
     const suspiciousKeywords = ['phish', 'verify', 'secure', 'login', 'update', 'account', 'banking', 'confirm'];
     const isSuspicious = suspiciousKeywords.some(kw => lowerUrl.includes(kw));
 
-    if (isSuspicious) {
+    if (isSuspicious || finalUrl !== url) {
       // Redirect to the internal verification page
-      const verifyUrl = chrome.runtime.getURL(`verify.html?url=${encodeURIComponent(url)}`);
+      // pass both original and final for context
+      const verifyUrl = chrome.runtime.getURL(`verify.html?url=${encodeURIComponent(finalUrl)}&original=${encodeURIComponent(url)}`);
       chrome.tabs.update(details.tabId, { url: verifyUrl });
     }
   });
 });
 
+async function followRedirects(url, depth = 0) {
+  if (depth >= 5) return url; // Limit to 5 hops
+  
+  try {
+    const response = await fetch(url, { 
+      method: 'HEAD', 
+      redirect: 'manual',
+      mode: 'no-cors' 
+    });
+    
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get('location');
+      if (location) {
+        // Handle relative URLs
+        const nextUrl = new URL(location, url).href;
+        return followRedirects(nextUrl, depth + 1);
+      }
+    }
+    return url;
+  } catch (e) {
+    return url; // On error, return current
+  }
+}
+
 // Handle analysis requests from verify page
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'ANALYZE_LINK') {
-    api.analyzeURL(message.url)
-      .then(result => {
-        sendResponse(result);
-      })
-      .catch(err => {
-        console.error('Background Analysis Error:', err);
-        sendResponse({ classification: 'Error', reasons: [{ text: 'Analysis failed' }] });
-      });
-    return true; // Keep channel open for async response
+    (async () => {
+      const finalUrl = await followRedirects(message.url);
+      const result = await api.analyzeURL(finalUrl);
+      sendResponse({ ...result, finalUrl });
+    })();
+    return true; 
   }
 });
 
