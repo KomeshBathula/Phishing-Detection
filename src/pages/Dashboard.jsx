@@ -7,8 +7,9 @@ import {
 import Card from '../components/Card';
 import RiskBadge from '../components/RiskBadge';
 import Button from '../components/Button';
-import { mockStats, mockHistory } from '../data/mockData';
 import { formatTimestamp } from '../utils/analyzer';
+import api from '../services/api';
+import { useEffect, useState } from 'react';
 
 function StatCard({ icon: Icon, label, value, color, delay }) {
   return (
@@ -48,7 +49,28 @@ const typeIcons = {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const recentItems = mockHistory.slice(0, 5);
+  const [stats, setStats] = useState(null);
+  const [recentItems, setRecentItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [statsData, historyData] = await Promise.all([
+          api.getStats(),
+          api.getHistory()
+        ]);
+        setStats(statsData);
+        setRecentItems((historyData || []).slice(0, 5));
+      } catch (err) {
+        console.error('Dashboard data fetch failed:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
@@ -116,10 +138,34 @@ export default function Dashboard() {
       {/* Stats */}
       <section>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard icon={Scan} label="Total Scans" value={mockStats.totalScans.toLocaleString()} color="#3b82f6" delay={1} />
-          <StatCard icon={AlertTriangle} label="Threats Detected" value={mockStats.threatsDetected.toLocaleString()} color="#ef4444" delay={2} />
-          <StatCard icon={CheckCircle} label="Safe Content" value={mockStats.safeContent.toLocaleString()} color="#22c55e" delay={3} />
-          <StatCard icon={Target} label="Detection Accuracy" value={`${mockStats.accuracy}%`} color="#00ff88" delay={4} />
+          <StatCard 
+            icon={Scan} 
+            label="Total Scans" 
+            value={loading ? '...' : (stats?.totalScans || 0).toLocaleString()} 
+            color="#3b82f6" 
+            delay={1} 
+          />
+          <StatCard 
+            icon={AlertTriangle} 
+            label="Threats Detected" 
+            value={loading ? '...' : (stats?.threatsDetected || 0).toLocaleString()} 
+            color="#ef4444" 
+            delay={2} 
+          />
+          <StatCard 
+            icon={CheckCircle} 
+            label="Safe Content" 
+            value={loading ? '...' : (stats?.safeContent || 0).toLocaleString()} 
+            color="#22c55e" 
+            delay={3} 
+          />
+          <StatCard 
+            icon={Target} 
+            label="Detection Accuracy" 
+            value={loading ? '...' : `${stats?.accuracy || 0}%`} 
+            color="#00ff88" 
+            delay={4} 
+          />
         </div>
       </section>
 

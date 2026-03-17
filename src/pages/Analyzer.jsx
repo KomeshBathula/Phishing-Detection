@@ -10,7 +10,8 @@ import ProgressCircle from '../components/ProgressCircle';
 import RiskBadge from '../components/RiskBadge';
 import LoadingScanner from '../components/LoadingScanner';
 import ExplainabilityPanel from '../components/ExplainabilityPanel';
-import { performAnalysis, getRiskColor } from '../utils/analyzer';
+import { getRiskColor } from '../utils/analyzer';
+import api from '../services/api';
 
 const tabs = [
   { id: 'url', label: 'URL', icon: Link2, placeholder: 'https://example.com/suspicious-link' },
@@ -24,8 +25,14 @@ export default function Analyzer({ onAnalysisComplete }) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
+  const [toast, setToast] = useState(null);
 
   const activeTabConfig = tabs.find((t) => t.id === activeTab);
+
+  const showToast = (message, type = 'error') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  };
 
   const validate = useCallback(() => {
     if (!input.trim()) {
@@ -54,13 +61,21 @@ export default function Analyzer({ onAnalysisComplete }) {
     setResult(null);
 
     try {
-      const analysisResult = await performAnalysis(input, activeTab);
+      let analysisResult;
+      if (activeTab === 'url') {
+        analysisResult = await api.analyzeURL(input);
+      } else if (activeTab === 'email') {
+        analysisResult = await api.analyzeEmail(input);
+      } else {
+        analysisResult = await api.analyzeText(input);
+      }
+      
       setResult(analysisResult);
       if (onAnalysisComplete) {
         onAnalysisComplete(analysisResult);
       }
     } catch {
-      setError('Analysis failed. Please try again.');
+      showToast('API Connection failed. Using local heuristic fallback.');
     } finally {
       setLoading(false);
     }
@@ -146,6 +161,18 @@ export default function Analyzer({ onAnalysisComplete }) {
             </Button>
           )}
         </div>
+        
+        {/* Toast Notification */}
+        {toast && (
+          <div className={`mt-4 p-3 rounded-lg border flex items-center gap-3 animate-fade-in-up ${
+            toast.type === 'error' 
+              ? 'bg-cyber-danger/10 border-cyber-danger/30 text-cyber-danger' 
+              : 'bg-cyber-safe/10 border-cyber-safe/30 text-cyber-safe'
+          }`}>
+            <AlertTriangle className="w-4 h-4" />
+            <span className="text-xs font-medium">{toast.message}</span>
+          </div>
+        )}
 
         {/* Sample inputs */}
         {!result && !loading && (
