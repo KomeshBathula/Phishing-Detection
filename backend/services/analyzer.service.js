@@ -1,109 +1,122 @@
-const SUSPICIOUS_KEYWORDS = ['urgent', 'verify', 'suspended', 'login', 'alert', 'update', 'banking', 'secure', 'account', 'password'];
-const SUSPICIOUS_TLDS = ['.tk', '.ml', '.ga', '.cf', '.gq', '.buzz', '.top', '.xyz'];
+import { analyzeURLIntelligence } from './urlIntelligence.service.js';
+import { analyzeDomainIntelligence } from './domainIntel.service.js';
+import { calculateUnifiedScore } from './scoring.service.js';
+import { generateExplanations, buildBreakdown } from './explainability.service.js';
 
-const TRUSTED_DOMAINS = [
-  'google.com',
-  'paypal.com',
-  'amazon.com',
-  'apple.com',
-  'microsoft.com',
-  'github.com',
-  'facebook.com',
-  'twitter.com'
+// Cache for repeated domain checks to keep response < 300ms
+const domainCache = new Map();
+
+const PHISHING_PHRASES = [
+  'account suspended', 'click below', 'limited time', 'act now',
+  'verify immediately', 'secure your account', 'unusual activity',
+  'urgent action required', 'confirm your identity'
 ];
 
-const FAKE_DOMAIN_PATTERNS = [
-  { pattern: 'paypa1', target: 'paypal' },
-  { pattern: 'goog1e', target: 'google' },
-  { pattern: 'amaz0n', target: 'amazon' },
-  { pattern: 'micros0ft', target: 'microsoft' }
+const URGENCY_KEYWORDS = [
+  { word: 'immediately', score: 30 },
+  { word: 'urgent', score: 25 },
+  { word: 'within', score: 10 },
+  { word: 'suspended', score: 20 },
+  { word: 'warning', score: 15 }
 ];
 
 /**
- * Core analysis engine logic
+ * Advanced Content Analysis logic
  */
-const performAnalysis = (input, type) => {
-  let riskScore = 0;
-  const reasons = [];
-  const breakdown = {
-    keywords: 0,
-    tld: 0,
-    fakeDomain: 0
-  };
+const analyzeContentContext = (text) => {
+  const lowerText = text.toLowerCase();
+  let urgencyScore = 0;
+  let patternScore = 0;
+  const detectedPhrases = [];
 
-  const lowerInput = input.toLowerCase();
-
-  // 1. Domain Checks (for URL)
-  if (type === 'url') {
-    try {
-      const urlObj = new URL(input.startsWith('http') ? input : `http://${input}`);
-      const hostname = urlObj.hostname;
-
-      // Whitelist check
-      const isTrusted = TRUSTED_DOMAINS.some(domain => 
-        hostname === domain || hostname.endsWith(`.${domain}`)
-      );
-
-      if (isTrusted) {
-        return {
-          riskScore: 5,
-          classification: 'Low',
-          reasons: ['Verified trusted domain'],
-          breakdown: { trusted: true },
-          confidence: 0.95
-        };
-      }
-
-      // Suspicious TLD (+30)
-      if (SUSPICIOUS_TLDS.some(tld => hostname.endsWith(tld))) {
-        riskScore += 30;
-        breakdown.tld = 30;
-        reasons.push('Uses a suspicious top-level domain frequently associated with phishing.');
-      }
-
-      // Fake Domains (+40)
-      for (const { pattern } of FAKE_DOMAIN_PATTERNS) {
-        if (hostname.includes(pattern)) {
-          riskScore += 40;
-          breakdown.fakeDomain = 40;
-          reasons.push(`Domain name spoofing detected (resembles ${pattern})`);
-          break;
-        }
-      }
-    } catch (e) {
-      reasons.push('Invalid URL structure detected');
-      riskScore += 20;
-    }
-  }
-
-  // 2. Keyword Detection (+10 each)
-  let keywordScore = 0;
-  SUSPICIOUS_KEYWORDS.forEach(word => {
-    if (lowerInput.includes(word)) {
-      keywordScore += 10;
+  // 1. Phrase Detection
+  PHISHING_PHRASES.forEach(phrase => {
+    if (lowerText.includes(phrase)) {
+      patternScore += 30;
+      detectedPhrases.push(phrase);
     }
   });
-  
-  if (keywordScore > 0) {
-    riskScore += Math.min(keywordScore, 40); // Cap keyword impact
-    breakdown.keywords = Math.min(keywordScore, 40);
-    reasons.push('Multiple high-pressure or security-themed keywords found.');
-  }
 
-  // Normalize and Classify
-  riskScore = Math.min(riskScore, 100);
-  const classification = riskScore >= 70 ? 'High' : riskScore >= 30 ? 'Medium' : 'Low';
-  const confidence = Math.max(0.6, 1 - (reasons.length * 0.1));
+  // 2. Context-Based Keyword Scoring
+  URGENCY_KEYWORDS.forEach(({ word, score }) => {
+    if (lowerText.includes(word)) {
+      urgencyScore += score;
+    }
+  });
+
+  // 3. Complexity Heuristic
+  const words = text.split(/\s+/).length;
+  const complexity = words < 5 || words > 200 ? 'Low' : 'Normal';
 
   return {
-    riskScore,
-    classification,
-    reasons: reasons.length > 0 ? reasons : ['No major threat indicators found.'],
-    breakdown,
-    confidence: parseFloat(confidence.toFixed(2))
+    urgencyScore: Math.min(urgencyScore, 100),
+    patternScore: Math.min(patternScore, 100),
+    detectedPhrases,
+    complexity
   };
 };
 
-export const analyzeUrlService = async (url) => performAnalysis(url, 'url');
-export const analyzeEmailService = async (content) => performAnalysis(content, 'email');
-export const analyzeTextService = async (content) => performAnalysis(content, 'text');
+/**
+ * Orchestrates multiple intelligence layers to perform a deep scan.
+ */
+const deepAnalyze = async (input, type) => {
+  const startTime = Date.now();
+  
+  // URL context
+  const urlToAnalyze = type === 'url' ? input : '';
+  const urlIntelligence = analyzeURLIntelligence(urlToAnalyze);
+  
+  // Domain Intelligence (check cache first)
+  let domainContext;
+  const hostname = urlIntelligence.details?.hostname || 'generic';
+  
+  if (domainCache.has(hostname)) {
+    domainContext = domainCache.get(hostname);
+  } else {
+    domainContext = analyzeDomainIntelligence(urlToAnalyze || input);
+    domainCache.set(hostname, domainContext);
+  }
+
+  // Content Context
+  const contentContext = analyzeContentContext(input);
+
+  // Unified Scoring
+  const scoring = calculateUnifiedScore({
+    urlContext: urlIntelligence,
+    domainContext,
+    contentContext,
+    isTrusted: domainContext.reputationScore > 90
+  });
+
+  // Explainability
+  const reasons = generateExplanations({
+    urlContext: urlIntelligence,
+    domainContext,
+    contentContext
+  });
+
+  const breakdown = buildBreakdown({
+    urlContext: urlIntelligence,
+    domainContext,
+    contentContext,
+    weights: scoring.breakdown
+  });
+
+  // Calculate Confidence
+  const signalCount = urlIntelligence.flags.length + (contentContext.detectedPhrases.length > 0 ? 1 : 0) + (domainContext.riskFactor > 40 ? 1 : 0);
+  const confidence = Math.min(0.95, 0.6 + (signalCount * 0.1));
+
+  console.log(`Scan completed in ${Date.now() - startTime}ms`);
+
+  return {
+    riskScore: scoring.score,
+    classification: scoring.classification,
+    reasons,
+    breakdown,
+    confidence
+  };
+};
+
+export const analyzeUrlService = async (url) => deepAnalyze(url, 'url');
+export const analyzeEmailService = async (content) => deepAnalyze(content, 'email');
+export const analyzeTextService = async (content) => deepAnalyze(content, 'text');
