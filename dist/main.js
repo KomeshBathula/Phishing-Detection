@@ -1,1 +1,0 @@
-import{c as e,l as t,s as n,t as r}from"./assets/src-DQCCoy1p.js";import"./assets/modulepreload-polyfill-BnkOoLKg.js";import{n as i,t as a}from"./assets/App-BFMUaxwP.js";import"./assets/api-DzmAZeSk.js";var o=t(e(),1),s=n(),c=r();(0,s.createRoot)(document.getElementById(`root`)).render((0,c.jsx)(o.StrictMode,{children:(0,c.jsx)(i,{children:(0,c.jsx)(a,{})})}));
