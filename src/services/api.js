@@ -61,22 +61,29 @@ export const api = {
   async analyzeURL(url) {
     const lowerUrl = url.toLowerCase();
     
-    // Whitelist check: if it's a known legitimate domain, return safe immediately
-    for (const domain of legitimateDomains) {
-      if (lowerUrl.includes(domain)) {
-        const result = {
-          riskScore: 5,
-          classification: 'Low Risk',
-          type: 'url',
-          input: url,
-          timestamp: new Date().toISOString(),
-          reasons: [
-            { text: `Verified legitimate domain: ${domain}`, severity: 'safe' }
-          ]
-        };
-        await storage.saveScanResult(result);
-        return result;
-      }
+    // New logic: check domain only, not path keywords
+    const getDomain = (u) => {
+      try {
+        const h = new URL(u.startsWith('http') ? u : `http://${u}`).hostname;
+        const p = h.split('.');
+        return p.length >= 2 ? p.slice(-2).join('.') : h;
+      } catch (e) { return u; }
+    };
+    
+    const domain = getDomain(lowerUrl);
+    if (legitimateDomains.includes(domain)) {
+      const result = {
+        riskScore: 5,
+        classification: 'Low Risk',
+        type: 'url',
+        input: url,
+        timestamp: new Date().toISOString(),
+        reasons: [
+          { text: `Verified legitimate domain: ${domain}`, severity: 'safe' }
+        ]
+      };
+      await storage.saveScanResult(result);
+      return result;
     }
 
     return fetchWithFallback(

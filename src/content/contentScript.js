@@ -21,7 +21,7 @@ function safeSendMessage(message, callback) {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'SHOW_WARNING') {
-    showWarningBanner(message.data);
+    // showWarningBanner(message.data); // Disabled as per user request
   }
 });
 

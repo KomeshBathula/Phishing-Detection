@@ -13,6 +13,7 @@ export const legitimateDomains = [
   'google.com', 'github.com', 'microsoft.com', 'apple.com', 'amazon.com',
   'facebook.com', 'twitter.com', 'linkedin.com', 'netflix.com', 'ups.com',
   'fedex.com', 'paypal.com', 'chase.com', 'bankofamerica.com',
+  'hdfcbank.com', 'icicibank.com', 'axisbank.com', 'onlinesbi.sbi',
 ];
 
 const suspiciousWords = [
@@ -21,6 +22,22 @@ const suspiciousWords = [
 ];
 
 const suspiciousTLDs = ['.tk', '.ml', '.ga', '.cf', '.gq', '.buzz', '.top', '.xyz', '.site', '.info'];
+
+/**
+ * Extracts the base domain (e.g., "google.com") from a URL
+ */
+function getBaseDomain(url) {
+  try {
+    const hostname = new URL(url.startsWith('http') ? url : `http://${url}`).hostname;
+    const parts = hostname.split('.');
+    if (parts.length >= 2) {
+      return parts.slice(-2).join('.');
+    }
+    return hostname;
+  } catch (e) {
+    return url;
+  }
+}
 
 /**
  * Checks for homograph attacks (e.g., paypa1 instead of paypal)
@@ -46,13 +63,13 @@ function analyzeInput(input, type) {
   };
 
   if (type === 'url') {
-    // 1. Whitelist Check
-    for (const domain of legitimateDomains) {
-      if (lowerInput.includes(domain)) {
-        result.riskScore = 5;
-        result.reasons.push({ text: `Verified legitimate domain: ${domain}`, severity: 'safe' });
-        return result;
-      }
+    const domain = getBaseDomain(lowerInput);
+    
+    // 1. Whitelist Check (Priority: check domain, not the entire path)
+    if (legitimateDomains.includes(domain)) {
+      result.riskScore = 5;
+      result.reasons.push({ text: `Verified legitimate domain: ${domain}`, severity: 'safe' });
+      return result;
     }
 
     // 2. Protocol Check

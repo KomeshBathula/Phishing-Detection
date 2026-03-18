@@ -37,10 +37,20 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
       return;
     }
 
-    // Deep Redirect Analysis
-    const finalUrl = await followRedirects(url);
-    const lowerUrl = finalUrl.toLowerCase();
+    // New logic: check domain specifically to allow legitimate paths like github.com/phish-repo
+    const getDomain = (u) => {
+      try {
+        const h = new URL(u).hostname;
+        const p = h.split('.');
+        return p.length >= 2 ? p.slice(-2).join('.') : h;
+      } catch (e) { return ''; }
+    };
     
+    const domain = getDomain(lowerUrl);
+    const legitimate = ['google.com', 'github.com', 'microsoft.com', 'apple.com', 'amazon.com', 'facebook.com', 'twitter.com', 'linkedin.com', 'netflix.com', 'hdfcbank.com', 'icicibank.com', 'axisbank.com', 'onlinesbi.sbi'];
+    
+    if (legitimate.includes(domain)) return;
+
     // Check if finalUrl is in persistent bypass list too
     if (bypassedUrls.includes(finalUrl)) return;
     
@@ -113,10 +123,10 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
         const analysisResult = await api.analyzeURL(tab.url);
         
         if (analysisResult.classification === 'High Risk') {
-          chrome.tabs.sendMessage(tabId, {
-            action: 'SHOW_WARNING',
-            data: analysisResult
-          }).catch(() => {});
+          // chrome.tabs.sendMessage(tabId, {
+          //   action: 'SHOW_WARNING',
+          //   data: analysisResult
+          // }).catch(() => {});
         }
       } catch (err) {
         console.error('Tab Update Analysis Error:', err);
