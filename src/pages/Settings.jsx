@@ -7,15 +7,22 @@ export default function Settings() {
   const [isClearing, setIsClearing] = useState(false);
   const [clearSuccess, setClearSuccess] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [groqKey, setGroqKey] = useState('');
 
   useEffect(() => {
     // Load initial settings
     if (typeof chrome !== 'undefined' && chrome.storage) {
-      chrome.storage.local.get(['autoDeleteDays'], (result) => {
+      chrome.storage.local.get(['autoDeleteDays', 'groqApiKey'], (result) => {
         if (result.autoDeleteDays !== undefined) {
           setAutoDeleteDays(result.autoDeleteDays);
         }
+        if (result.groqApiKey) {
+          setGroqKey(result.groqApiKey);
+        }
       });
+    } else {
+      const savedKey = localStorage.getItem('groqApiKey');
+      if (savedKey) setGroqKey(savedKey);
     }
   }, []);
 
@@ -28,11 +35,15 @@ export default function Settings() {
 
   const saveSettings = () => {
     if (typeof chrome !== 'undefined' && chrome.storage) {
-      chrome.storage.local.set({ autoDeleteDays: autoDeleteDays }, () => {
+      chrome.storage.local.set({ 
+        autoDeleteDays: autoDeleteDays,
+        groqApiKey: groqKey 
+      }, () => {
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 2000);
       });
     } else {
+        localStorage.setItem('groqApiKey', groqKey);
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 2000);
     }
@@ -117,46 +128,63 @@ export default function Settings() {
             <div className="p-3 bg-cyber-accent/10 rounded-lg text-cyber-accent shrink-0">
               <ShieldCheck className="w-6 h-6" />
             </div>
-            <div className="flex-1 w-full">
-               <h2 className="text-lg font-bold text-cyber-text mb-1">Scheduled History Cleanup</h2>
+            <div className="flex-1 w-full text-left">
+               <h2 className="text-lg font-bold text-cyber-text mb-1">Extension Configuration</h2>
                <p className="text-sm text-cyber-muted max-w-2xl mb-4">
-                 Set the extension to automatically delete records from your local history that are older than a specific number of days.
-                 Set to <strong className="text-cyber-accent">0</strong> to disable automatic cleanup.
+                 Configure your personal Groq API Key and data retention policy.
                </p>
                
-               <div className="flex flex-col sm:flex-row gap-3 items-end sm:items-center p-4 bg-cyber-card rounded-lg border border-cyber-border">
-                 <div className="flex-1 w-full flex items-center gap-3">
-                   <div className="flex flex-col gap-1 w-32">
-                     <label className="text-[10px] font-bold uppercase tracking-wider text-cyber-muted">Keep Data For</label>
-                     <div className="relative">
-                       <input 
-                         type="number" 
-                         min="0"
-                         max="365"
-                         value={autoDeleteDays}
-                         onChange={handleDaysChange}
-                         className="w-full bg-cyber-dark border border-cyber-border rounded px-3 py-2 text-sm text-cyber-text font-mono focus:ring-1 focus:ring-cyber-accent outline-none appearance-none"
-                       />
-                       <span className="absolute right-3 top-2 text-sm text-cyber-muted pointer-events-none">days</span>
-                     </div>
-                   </div>
-                   
-                   <div className="flex-1 pt-5 hidden sm:block">
-                     {autoDeleteDays === 0 ? (
-                       <span className="text-xs text-cyber-muted">Automated cleanup is currently <strong>disabled</strong>. History will be kept indefinitely until cleared.</span>
-                     ) : (
-                       <span className="text-xs text-cyber-info">Records older than <strong>{autoDeleteDays} days</strong> will be automatically purged during active tracking.</span>
-                     )}
-                   </div>
+               <div className="space-y-4">
+                 {/* API Key Input */}
+                 <div className="p-4 bg-cyber-card rounded-lg border border-cyber-border">
+                   <label className="text-[10px] font-bold uppercase tracking-wider text-cyber-muted block mb-2">Groq API Key (Required for AI)</label>
+                   <input 
+                     type="password"
+                     placeholder="gsk_..."
+                     value={groqKey}
+                     onChange={(e) => setGroqKey(e.target.value)}
+                     className="w-full bg-cyber-dark border border-cyber-border rounded px-3 py-2 text-sm text-cyber-text font-mono focus:ring-1 focus:ring-cyber-accent outline-none"
+                   />
+                   <p className="text-[10px] text-cyber-muted mt-2">
+                     Get your free key at <a href="https://console.groq.com/" target="_blank" rel="noreferrer" className="text-cyber-accent hover:underline">console.groq.com</a>. Stored locally in your browser.
+                   </p>
                  </div>
 
-                 <button 
-                  onClick={saveSettings}
-                  className="w-full sm:w-auto px-4 py-2 bg-cyber-accent/10 text-cyber-accent border border-cyber-accent/30 hover:bg-cyber-accent/20 rounded-lg font-medium text-sm transition-colors flex items-center justify-center gap-2 mt-2 sm:mt-0"
-                 >
-                   {saveSuccess ? <CheckCircle2 className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-                   {saveSuccess ? 'Saved' : 'Save Config'}
-                 </button>
+                 {/* Days Input */}
+                 <div className="flex flex-col sm:flex-row gap-3 items-end sm:items-center p-4 bg-cyber-card rounded-lg border border-cyber-border">
+                   <div className="flex-1 w-full flex items-center gap-3">
+                     <div className="flex flex-col gap-1 w-32">
+                       <label className="text-[10px] font-bold uppercase tracking-wider text-cyber-muted">Keep Data For</label>
+                       <div className="relative">
+                         <input 
+                           type="number" 
+                           min="0"
+                           max="365"
+                           value={autoDeleteDays}
+                           onChange={handleDaysChange}
+                           className="w-full bg-cyber-dark border border-cyber-border rounded px-3 py-2 text-sm text-cyber-text font-mono focus:ring-1 focus:ring-cyber-accent outline-none appearance-none"
+                         />
+                         <span className="absolute right-3 top-2 text-sm text-cyber-muted pointer-events-none">days</span>
+                       </div>
+                     </div>
+                     
+                     <div className="flex-1 pt-5 hidden sm:block">
+                       {autoDeleteDays === 0 ? (
+                         <span className="text-xs text-cyber-muted text-left block">Automated cleanup is <strong>disabled</strong>.</span>
+                       ) : (
+                         <span className="text-xs text-cyber-info text-left block">Cleanup every <strong>{autoDeleteDays} days</strong>.</span>
+                       )}
+                     </div>
+                   </div>
+
+                   <button 
+                    onClick={saveSettings}
+                    className="w-full sm:w-auto px-4 py-2 bg-cyber-accent/10 text-cyber-accent border border-cyber-accent/30 hover:bg-cyber-accent/20 rounded-lg font-medium text-sm transition-colors flex items-center justify-center gap-2 mt-2 sm:mt-0"
+                   >
+                     {saveSuccess ? <CheckCircle2 className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+                     {saveSuccess ? 'Saved' : 'Save Config'}
+                   </button>
+                 </div>
                </div>
             </div>
           </div>

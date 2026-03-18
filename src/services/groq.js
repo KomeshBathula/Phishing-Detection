@@ -1,7 +1,6 @@
 /**
  * Groq API service for the security chatbot
  */
-const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY || '';
 const API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 const SYSTEM_PROMPT = `
@@ -16,17 +15,32 @@ STRICT RULES:
 5. Use a professional yet helpful tone.
 `;
 
+/**
+ * Helper to get the API key from storage or environment
+ */
+async function getApiKey() {
+  if (typeof chrome !== 'undefined' && chrome.storage) {
+    return new Promise((resolve) => {
+      chrome.storage.local.get(['groqApiKey'], (result) => {
+        resolve(result.groqApiKey || import.meta.env.VITE_GROQ_API_KEY || '');
+      });
+    });
+  }
+  return localStorage.getItem('groqApiKey') || import.meta.env.VITE_GROQ_API_KEY || '';
+}
+
 export const groq = {
   async chat(messages) {
-    if (!GROQ_API_KEY) {
-      throw new Error('Groq API Key is missing. Please add VITE_GROQ_API_KEY to your environment or settings.');
+    const apiKey = await getApiKey();
+    if (!apiKey) {
+      throw new Error('Groq API Key is missing. Please add it in the PhishGuard Settings page.');
     }
 
     try {
       const response = await fetch(API_URL, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${GROQ_API_KEY}`,
+          'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -54,8 +68,9 @@ export const groq = {
   },
 
   async analyzeContent(content, type) {
-    if (!GROQ_API_KEY) {
-      throw new Error('Groq API Key is missing.');
+    const apiKey = await getApiKey();
+    if (!apiKey) {
+      throw new Error('Groq API Key is missing. Please add it in the PhishGuard Settings page.');
     }
 
     const inputKind =
@@ -98,7 +113,7 @@ export const groq = {
       const response = await fetch(API_URL, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${GROQ_API_KEY}`,
+          'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
